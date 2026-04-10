@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Bridge Dashboard</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --secondary: #a855f7;
+            --bg: #0f172a;
+            --glass: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            background: radial-gradient(circle at top left, #1e1b4b, #0f172a);
+        }
+
+        /* Animated Background Blobs */
+        .blob {
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            filter: blur(80px);
+            opacity: 0.15;
+            z-index: -1;
+            animation: move 20s infinite alternate;
+        }
+
+        @keyframes move {
+            from { transform: translate(-20%, -20%); }
+            to { transform: translate(20%, 20%); }
+        }
+
+        .container {
+            width: 90%;
+            max-width: 600px;
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 30px;
+            padding: 40px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .container:hover {
+            transform: translateY(-5px);
+        }
+
+        .main-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .controls-side {
+            width: 100%;
+        }
+
+        h1 {
+            font-weight: 600;
+            font-size: 2.5rem;
+            margin-bottom: 30px;
+            background: linear-gradient(to right, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 16px;
+            border-radius: 100px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 30px;
+            transition: all 0.5s ease;
+        }
+
+        .status-badge.online {
+            background: rgba(34, 197, 94, 0.1);
+            color: #4ade80;
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+
+        .status-badge.offline {
+            background: rgba(239, 68, 68, 0.1);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.5; }
+        }
+
+        .input-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 24px;
+            text-align: left;
+        }
+
+        .card label {
+            display: block;
+            font-size: 0.9rem;
+            color: #94a3b8;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .val-display {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: white;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        .result-panel {
+            margin-top: 40px;
+            padding: 30px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.1));
+            border-radius: 20px;
+            border: 1px solid rgba(168, 85, 247, 0.2);
+        }
+
+        .result-label {
+            font-size: 1.1rem;
+            color: #cbd5e1;
+            margin-bottom: 10px;
+        }
+
+        .result-value {
+            font-size: 4rem;
+            font-weight: 600;
+            text-shadow: 0 0 20px rgba(168, 85, 247, 0.5);
+            animation: countUp 0.3s ease-out;
+        }
+
+        @keyframes countUp {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="blob"></div>
+
+        <div class="main-grid">
+            <div class="controls-side">
+                <div class="input-group" style="grid-template-columns: 1fr 1fr; gap: 30px;">
+                    <div class="card">
+                        <label>Input A (User Dependent)</label>
+                        <div id="val-a" class="val-display">50</div>
+                        <input type="range" id="slider-a" min="0" max="100" value="50">
+                    </div>
+                    <div class="card">
+                        <label>Input B (User Dependent)</label>
+                        <div id="val-b" class="val-display">50</div>
+                        <input type="range" id="slider-b" min="0" max="100" value="50">
+                    </div>
+                </div>
+
+                <div class="result-panel" style="margin-top: 40px; transform: scale(1.1);">
+                    <div class="result-label">Output Result (C)</div>
+                    <div id="val-c" class="result-value">100</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        const sliderA = document.getElementById('slider-a');
+        const sliderB = document.getElementById('slider-b');
+        const valA = document.getElementById('val-a');
+        const valB = document.getElementById('val-b');
+        const valC = document.getElementById('val-c');
+        const statusBadge = document.getElementById('status-badge');
+        const statusText = document.getElementById('status-text');
+
+        function updateInputs() {
+            const a = parseFloat(sliderA.value);
+            const b = parseFloat(sliderB.value);
+            valA.textContent = a;
+            valB.textContent = b;
+            
+            // Send to Server -> MATLAB
+            socket.emit('command', { a, b });
+        }
+
+        sliderA.oninput = updateInputs;
+        sliderB.oninput = updateInputs;
+
+        // Listen for data from MATLAB
+        socket.on('matlab_data', (data) => {
+            if (data.c !== undefined) {
+                const cVal = Math.round(data.c * 10) / 10;
+                valC.textContent = cVal;
+                
+                // Force online status if receiving data
+                statusBadge.className = 'status-badge online';
+                statusText.textContent = 'BRIDGE ACTIVE';
+            }
+        });
+
+        // --- TWO-WAY SYNC (FILE -> WEBSITE) ---
+        socket.on('file_sync', (data) => {
+            if (data.a !== undefined) {
+                sliderA.value = data.a;
+                valA.textContent = data.a;
+            }
+            if (data.b !== undefined) {
+                sliderB.value = data.b;
+                valB.textContent = data.b;
+            }
+            console.log("📁 Dashboard synced with File changes");
+        });
+
+        socket.on('status', (data) => {
+            if (data.connected) {
+                statusBadge.className = 'status-badge online';
+                statusText.textContent = 'BRIDGE ACTIVE';
+            } else {
+                statusBadge.className = 'status-badge offline';
+                statusText.textContent = 'DISCONNECTED FROM MATLAB';
+            }
+        });
+    </script>
+</body>
+</html>
