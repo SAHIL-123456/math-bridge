@@ -58,6 +58,7 @@ io.on('connection', (socket) => {
     socket.emit('status', { connected: !!matlabSocket });
 
     socket.on('command', (data) => {
+        console.log('📡 [Cloud Hub] Command received from Browser:', data);
         // Send to Local MATLAB if connected directly (Local execution)
         if (matlabSocket) {
             matlabSocket.write(JSON.stringify(data) + '\n');
@@ -83,6 +84,7 @@ io.on('connection', (socket) => {
 
     // --- CLOUD HUB LOGIC: RECEIVE DATA FROM LOCAL BRIDGE ---
     socket.on('bridge_telemetry', (data) => {
+        console.log('📊 [Cloud Hub] Telemetry received from Local Bridge:', data);
         // Broadcast to all browsers as matlab_data
         io.emit('matlab_data', data);
     });

@@ -11,7 +11,12 @@ const NEW_SHORT_PATH = path.join(__dirname, '..', 'fresh_matlab', 'New_short.m')
 console.log('🚀 Starting Local Bridge...');
 
 // 1. Connect to Cloud (Render)
-const socket = io(RENDER_URL);
+// Force WebSocket transport for better stability in cloud-to-local scenarios
+const socket = io(RENDER_URL, { 
+    transports: ['websocket'],
+    reconnection: true,
+    reconnectionAttempts: Infinity
+});
 
 socket.on('connect', () => {
     console.log('✅ Connected to Cloud Hub (Render)');
@@ -19,7 +24,7 @@ socket.on('connect', () => {
 
 // Listen for commands from the cloud website
 socket.on('command', (data) => {
-    console.log('🎮 Command received from Cloud:', data);
+    console.log('📬 Command received from Cloud:', data);
     
     // Send to MATLAB if connected
     if (matlabSocket) {
