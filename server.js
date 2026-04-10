@@ -58,28 +58,36 @@ io.on('connection', (socket) => {
     socket.emit('status', { connected: !!matlabSocket });
 
     socket.on('command', (data) => {
+        // Send to Local MATLAB if connected directly (Local execution)
         if (matlabSocket) {
-            // Send to MATLAB as JSON with newline
             matlabSocket.write(JSON.stringify(data) + '\n');
         }
 
-        // --- SYNC TO FILES ---
-        try {
-            const freshMatlabDir = path.join(__dirname, '..', 'fresh_matlab');
-            const newShortPath = path.join(freshMatlabDir, 'New_short.m');
-            const newShortContent = `a=[${data.a}];\nb=[${data.b}];\nc= a+b;`;
-            
-            // Temporary disable watcher to avoid infinite loop when we are the ones writing
-            isWritingFile = true;
-            fs.writeFileSync(newShortPath, newShortContent);
-            setTimeout(() => { isWritingFile = false; }, 500);
+        // --- BROADCAST TO CLOUD CLIENTS ---
+        // If this is the Cloud Hub, the local bridge will listen to this 'command'
+        io.emit('command', data);
 
-            console.log(`💾 File Updated: New_short.m (A=${data.a}, B=${data.b})`);
-        } catch (err) {
-            console.error('Error syncing files:', err);
+        // --- SYNC TO FILES (Local execution only) ---
+        if (fs.existsSync(newShortPath)) {
+            try {
+                isWritingFile = true;
+                const newShortContent = `a=[${data.a}];\nb=[${data.b}];\nc= a+b;`;
+                fs.writeFileSync(newShortPath, newShortContent);
+                setTimeout(() => { isWritingFile = false; }, 500);
+                console.log(`💾 Local File Updated: New_short.m`);
+            } catch (err) {
+                console.error('Error syncing files:', err);
+            }
         }
     });
+
+    // --- CLOUD HUB LOGIC: RECEIVE DATA FROM LOCAL BRIDGE ---
+    socket.on('bridge_telemetry', (data) => {
+        // Broadcast to all browsers as matlab_data
+        io.emit('matlab_data', data);
+    });
 });
+
 
 // --- TWO-WAY SYNC (FILE -> WEBSITE) ---
 const newShortPath = path.join(__dirname, '..', 'fresh_matlab', 'New_short.m');
