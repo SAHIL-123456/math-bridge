@@ -85,32 +85,36 @@ io.on('connection', (socket) => {
 const newShortPath = path.join(__dirname, '..', 'fresh_matlab', 'New_short.m');
 let isWritingFile = false;
 
-fs.watchFile(newShortPath, { interval: 1000 }, (curr, prev) => {
-    if (isWritingFile) return;
-    if (curr.mtime <= prev.mtime) return;
+if (fs.existsSync(newShortPath)) {
+    fs.watchFile(newShortPath, { interval: 1000 }, (curr, prev) => {
+        if (isWritingFile) return;
+        if (curr.mtime <= prev.mtime) return;
 
-    try {
-        const content = fs.readFileSync(newShortPath, 'utf8');
-        // Robust regex: matches "a=50", "a = [50]", "a  =  50.5" etc.
-        const matchA = content.match(/a\s*=\s*\[?\s*([\d.]+)\s*\]?/i);
-        const matchB = content.match(/b\s*=\s*\[?\s*([\d.]+)\s*\]?/i);
+        try {
+            const content = fs.readFileSync(newShortPath, 'utf8');
+            // Robust regex: matches "a=50", "a = [50]", "a  =  50.5" etc.
+            const matchA = content.match(/a\s*=\s*\[?\s*([\d.]+)\s*\]?/i);
+            const matchB = content.match(/b\s*=\s*\[?\s*([\d.]+)\s*\]?/i);
 
-        if (matchA || matchB) {
-            const data = {};
-            if (matchA) data.a = parseFloat(matchA[1]);
-            if (matchB) data.b = parseFloat(matchB[1]);
-            
-            console.log(`📂 Manual Edit Detected:`, data);
-            io.emit('file_sync', data); // Tell browser to update sliders
+            if (matchA || matchB) {
+                const data = {};
+                if (matchA) data.a = parseFloat(matchA[1]);
+                if (matchB) data.b = parseFloat(matchB[1]);
+                
+                console.log(`📂 Manual Edit Detected:`, data);
+                io.emit('file_sync', data); // Tell browser to update sliders
+            }
+        } catch (err) {
+            console.error('Error reading file change:', err);
         }
-    } catch (err) {
-        console.error('Error reading file change:', err);
-    }
-});
+    });
+} else {
+    console.log('ℹ️ Local MATLAB file sync disabled (File not found). This is normal during Cloud deployment.');
+}
 
 
 // --- START SERVER ---
-const WEB_PORT = 3000;
+const WEB_PORT = process.env.PORT || 3000;
 server.listen(WEB_PORT, () => {
     console.log(`✨ Dashboard ready at http://localhost:${WEB_PORT}`);
 });
